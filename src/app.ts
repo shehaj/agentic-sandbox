@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AppConfig } from "./config.js";
-import { RunStore, ValidationError, validateNewRun } from "./runs.js";
+import { RunStore, ValidationError, validateNewRun, validateRunStatus } from "./runs.js";
 
 export const APP_VERSION = "1.0.0";
 
@@ -31,6 +31,16 @@ export function createApp({ config, store }: AppContext): Express {
     const run = store.get(req.params.id);
     if (!run) return res.status(404).json({ error: "run not found", id: req.params.id });
     return res.json(run);
+  });
+
+  app.patch("/api/runs/:id/status", (req, res) => {
+    const status = validateRunStatus(req.body?.status);
+    const result = store.transitionStatus(req.params.id, status);
+    if (result.result === "not_found") return res.status(404).json({ error: "run not found", id: req.params.id });
+    if (result.result === "invalid_transition") {
+      return res.status(409).json({ error: "invalid transition", from: result.from, to: status });
+    }
+    return res.json(result.run);
   });
 
   app.post("/api/runs", (req, res) => {

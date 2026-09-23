@@ -50,6 +50,28 @@ describe("runs api", () => {
     expect(res.status).toBe(404);
   });
 
+  it("transitions a run through running to done", async () => {
+    const running = await request(app).patch("/api/runs/run-0001/status").send({ status: "running" });
+    expect(running.status).toBe(200);
+    expect(running.body).toMatchObject({ id: "run-0001", status: "running" });
+
+    const done = await request(app).patch("/api/runs/run-0001/status").send({ status: "done" });
+    expect(done.status).toBe(200);
+    expect(done.body).toMatchObject({ id: "run-0001", status: "done" });
+  });
+
+  it("rejects an invalid status transition", async () => {
+    const res = await request(app).patch("/api/runs/run-0001/status").send({ status: "done" });
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "invalid transition", from: "planned", to: "done" });
+  });
+
+  it("returns 404 when transitioning an unknown run", async () => {
+    const res = await request(app).patch("/api/runs/run-9999/status").send({ status: "running" });
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "run not found", id: "run-9999" });
+  });
+
   it("creates a run", async () => {
     const res = await request(app)
       .post("/api/runs")
