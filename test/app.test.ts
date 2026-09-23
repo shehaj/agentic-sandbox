@@ -59,6 +59,21 @@ describe("runs api", () => {
     expect(res.body.id).toMatch(/^run-\d{4}$/);
   });
 
+  it.each([-5, 501])("rejects CO2 value %s outside the allowed range", async (co2GramsPerKm) => {
+    const res = await request(app)
+      .post("/api/runs")
+      .send({ vehicleId: "WVW-7777", cycle: "WLTC", co2GramsPerKm });
+    expect(res.status).toBe(400);
+    expect(res.body.details).toContain("co2GramsPerKm must be between 0 and 500");
+  });
+
+  it.each([0, 500])("accepts CO2 boundary value %s", async (co2GramsPerKm) => {
+    const res = await request(app)
+      .post("/api/runs")
+      .send({ vehicleId: "WVW-7777", cycle: "WLTC", co2GramsPerKm });
+    expect(res.status).toBe(201);
+  });
+
   it("rejects invalid input with details", async () => {
     const res = await request(app).post("/api/runs").send({ vehicleId: "", cycle: "FOO", co2GramsPerKm: "x" });
     expect(res.status).toBe(400);
