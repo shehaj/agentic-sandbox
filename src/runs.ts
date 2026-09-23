@@ -23,6 +23,7 @@ export class ValidationError extends Error {
 }
 
 const CYCLES: Cycle[] = ["WLTC", "NEDC", "RDE"];
+const STATUSES: RunStatus[] = ["planned", "running", "done"];
 
 export function validateNewRun(input: unknown): NewRun {
   const details: string[] = [];
@@ -31,6 +32,7 @@ export function validateNewRun(input: unknown): NewRun {
   if (typeof body.vehicleId !== "string" || body.vehicleId.trim() === "") {
     details.push("vehicleId must be a non-empty string");
   }
+
   if (!CYCLES.includes(body.cycle as Cycle)) {
     details.push(`cycle must be one of ${CYCLES.join("|")}`);
   }
@@ -44,6 +46,13 @@ export function validateNewRun(input: unknown): NewRun {
     cycle: body.cycle as Cycle,
     co2GramsPerKm: body.co2GramsPerKm as number,
   };
+}
+
+export function validateRunStatus(input: unknown): RunStatus {
+  if (typeof input !== "string" || !STATUSES.includes(input as RunStatus)) {
+    throw new ValidationError([`status must be one of ${STATUSES.join("|")}`]);
+  }
+  return input as RunStatus;
 }
 
 export class RunStore {
@@ -61,6 +70,21 @@ export class RunStore {
 
   get(id: string): MeasurementRun | undefined {
     return this.runs.get(id);
+  }
+
+  transitionStatus(
+    id: string,
+    to: RunStatus,
+  ):
+    | { result: "updated"; run: MeasurementRun }
+    | { result: "not_found" }
+    | { result: "invalid_transition"; from: RunStatus } {
+    const run = this.runs.get(id);
+    if (!run) return { result: "not_found" };
+    const allowed = (run.status === "planned" && to === "running") || (run.status === "running" && to === "done");
+    if (!allowed) return { result: "invalid_transition", from: run.status };
+    run.status = to;
+    return { result: "updated", run };
   }
 
   create(input: NewRun): MeasurementRun {
